@@ -2,11 +2,13 @@
 import requests
 import pandas as pd
 from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 import geopandas as gpd
 import shapely
 
-def main():
+
+def fetch_lmps(outdir):
     # Request CAISO Day-Ahead price contour map
     url = "https://wwwmobile.caiso.com/Web.Service.Chart/api/v3/ChartService/PriceContourMap1"
     resp = requests.get(url)
@@ -24,11 +26,11 @@ def main():
             if item.get("t") == "Node":
                 nodes.append({
                     "node_id": item.get("n"),
-                    "lat": item["c"][0] if item.get("c") else None,
-                    "lon": item["c"][1] if item.get("c") else None,
+                    "lat": item["c"][0],
+                    "lon": item["c"][1],
                     "type": item.get("p"),   # LOAD or GEN
                     "area": item.get("a"),   # e.g., PGE, SCE
-                    "price_dp": float(item.get("dp")) if item.get("dp") else None
+                    "price_dp": float(item.get("dp")) # LMP price
                 })
 
     df = pd.DataFrame(nodes)
@@ -37,7 +39,7 @@ def main():
     df = df[df['type'] == 'LOAD']
 
     # Clip just to nodes within CA
-    ca_shapefile = "ca_state/CA_State.shp"                   # path to California shapefile
+    ca_shapefile = "ca_state/CA_State.shp"      # path to California shapefile
 
     gdf_lmps = gpd.GeoDataFrame(
         df,
@@ -49,16 +51,33 @@ def main():
     ca_polygon = gdf_ca.union_all()
     gdf_lmps = gdf_lmps[gdf_lmps.within(ca_polygon)]
 
-    # Drop unnesseary columns for storage savings
-    # gdf_lmps = gdf_lmps.drop(columns=['lat', 'lon', 'area'])
+    # Delete old files
+    for f in outdir.glob('*csv'):
+        parts = f.stem.split("_")
+
+        file_date = parts[2]
+        file_hour = int(parts[3][2:])  
+        file_dt = datetime.strptime(file_date, "%Y-%m-%d") + timedelta(hours=file_hour)
+
+        if datetime.now() - file_dt > timedelta(hours=26):
+            f.unlink()
+            print(f"Deleted old file: {f.name}")
+            
 
     # Save to timestamped CSV
-    outdir = Path("outputs")
-    outdir.mkdir(exist_ok=True)
     safe_date = current_date.replace(":", "_")
     outfile = outdir / f"caiso_lmps_{safe_date}_HE{current_hour_ending:02d}.csv"
     gdf_lmps.to_csv(outfile, index=False)
-    print(f"Saved {len(gdf_lmps)} nodes → {outfile}")
+    print(f"Saved {len(gdf_lmps)} nodes to {outfile}")
+
+
+
+def main():
+    # Make an output directory
+    outdir = Path("outputs")
+    outdir.mkdir(exist_ok=True)
+    fetch_lmps(outdir)
+    
 
 if __name__ == "__main__":
     main()
