@@ -7,6 +7,7 @@ from pathlib import Path
 import geopandas as gpd
 import time
 import shapely
+from zoneinfo import ZoneInfo
 
 def fetch(url):
     for attempt in range(3):  # give it up to 3 tries
@@ -61,18 +62,25 @@ def fetch_lmps(outdir):
     ca_polygon = gdf_ca.union_all()
     gdf_lmps = gdf_lmps[gdf_lmps.within(ca_polygon)]
 
-    # Delete old files
+    # Compute the timestamp of the latest file just saved
+    latest_dt = datetime.strptime(current_date, "%Y-%m-%d").replace(
+        tzinfo=ZoneInfo("US/Pacific")
+    ) + timedelta(hours=current_hour_ending)
+
+    window_start = latest_dt - timedelta(hours=23)  # 24 consecutive hours
+
+    # Delete old files outside this window
     for f in outdir.glob('*csv'):
         parts = f.stem.split("_")
-
         file_date = parts[2]
-        file_hour = int(parts[3][2:])  
-        file_dt = datetime.strptime(file_date, "%Y-%m-%d") + timedelta(hours=file_hour)
+        file_hour = int(parts[3][2:])
+        file_dt = datetime.strptime(file_date, "%Y-%m-%d").replace(
+            tzinfo=ZoneInfo("US/Pacific")
+        ) + timedelta(hours=file_hour)
 
-        if datetime.now() - file_dt > timedelta(hours=26):
+        if file_dt < window_start:
             f.unlink()
             print(f"Deleted old file: {f.name}")
-            
 
     # Save to timestamped CSV
     safe_date = current_date.replace(":", "_")
