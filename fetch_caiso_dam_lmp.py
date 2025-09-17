@@ -5,15 +5,25 @@ from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
 import geopandas as gpd
+import time
 import shapely
 
+def fetch(url):
+    for attempt in range(3):  # give it up to 3 tries
+        try:
+            r = requests.get(url, timeout=60)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            print(f"Attempt {attempt+1} failed: {e}")
+            if attempt < 2:   # don’t sleep after the last try
+                time.sleep(600)  # wait 10 min then try again
+    raise RuntimeError("CAISO API failed after 3 attempts")
 
 def fetch_lmps(outdir):
     # Request CAISO Day-Ahead price contour map
     url = "https://wwwmobile.caiso.com/Web.Service.Chart/api/v3/ChartService/PriceContourMap1"
-    resp = requests.get(url)
-    resp.raise_for_status()
-    contour = resp.json()
+    contour = fetch(url)
 
     # Extract metadata
     current_date = contour.get("dd").split('T')[0]     # e.g., "2025-09-13"
@@ -69,7 +79,6 @@ def fetch_lmps(outdir):
     outfile = outdir / f"caiso_lmps_{safe_date}_HE{current_hour_ending:02d}.csv"
     gdf_lmps.to_csv(outfile, index=False)
     print(f"Saved {len(gdf_lmps)} nodes to {outfile}")
-
 
 
 def main():
