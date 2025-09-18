@@ -10,7 +10,7 @@ import shapely
 from zoneinfo import ZoneInfo
 
 def fetch(url):
-    for attempt in range(3):  # give it up to 3 tries
+    for attempt in range(2):  # give it up to 2 tries
         try:
             r = requests.get(url, timeout=60)
             r.raise_for_status()
@@ -18,7 +18,7 @@ def fetch(url):
         except Exception as e:
             print(f"Attempt {attempt+1} failed: {e}")
             if attempt < 2:   # don’t sleep after the last try
-                time.sleep(600)  # wait 10 min then try again
+                time.sleep(900)  # wait 10 min then try again
     raise RuntimeError("CAISO API failed after 3 attempts")
 
 def fetch_lmps(outdir):
