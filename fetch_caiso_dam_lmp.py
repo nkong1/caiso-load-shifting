@@ -65,7 +65,7 @@ def fetch_lmps(outdir):
     gdf_lmps = gdf_lmps[gdf_lmps.within(ca_polygon)]
 
     # Remove unnecessary columns for storage savings
-    gdf_lmps = gdf_lmps.drop(columns=["type", "lat", "lon", "area"])
+    gdf_lmps = gdf_lmps.drop(columns=["type", "geometry", "area"])
 
     # Compute the timestamp of the latest file just saved
     latest_dt = datetime.strptime(current_date, "%Y-%m-%d").replace(
@@ -113,14 +113,14 @@ def combine_lmps(lmp_dir):
         single_hour_df = single_hour_df.rename(columns={"price_dp": str(file_dt)})
 
         single_hour_df = single_hour_df.drop(
-            columns=["geometry", "type", "lat", "lon", "area"], errors="ignore"
+            columns=["geometry", "type", "area"], errors="ignore"
         )
 
         if combined_df.empty:
             combined_df = single_hour_df
         else:
             combined_df = pd.merge(
-                combined_df, single_hour_df, on="node_id", how="inner"
+                combined_df, single_hour_df, on=["node_id", "lat", "lon"], how="inner"
             )
 
         combined_df = combined_df.sort_index(axis=1, ascending=False)
