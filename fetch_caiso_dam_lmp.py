@@ -18,7 +18,7 @@ def fetch(url):
         except Exception as e:
             print(f"Attempt {attempt+1} failed: {e}")
             if attempt < 2:   # don’t sleep after the last try
-                time.sleep(900)  # wait 10 min then try again
+                time.sleep(900)  # wait 15 min then try again
     raise RuntimeError("CAISO API failed after 3 attempts")
 
 def fetch_lmps(outdir):
