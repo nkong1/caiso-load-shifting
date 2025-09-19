@@ -104,44 +104,48 @@ def fetch_lmps(outdir):
 
     # Fill missing previous hour if needed
     if not has_previous_hour:
-        print("Previous hour missing. Filling with average of current and 2 hours prior...")
+        fill_previous_hour(current_date, current_hour_ending, outdir, gdf_lmps)
         
-        # compute the datetime of the prior hour (2 hours before the current hour ending)
-        two_hours_prior_dt = datetime.strptime(current_date, "%Y-%m-%d").replace(
-            tzinfo=ZoneInfo("US/Pacific")
-        ) + timedelta(hours=current_hour_ending - 2)
-
-        two_hours_prior_hour = two_hours_prior_dt.hour
-        two_hours_prior_date = two_hours_prior_dt.strftime("%Y-%m-%d")
-
-        if two_hours_prior_hour == 0:
-            two_hours_prior_hour = 24
-            two_hours_prior_date = (two_hours_prior_dt + timedelta(hours=-1)).strftime("%Y-%m-%d")
-
-        two_hours_hour_file = outdir / f"caiso_lmps_{two_hours_prior_date}_HE{two_hours_prior_hour:02d}.csv"
-
-        df_prior = pd.read_csv(two_hours_hour_file)
-        df_filled = df_prior.copy()
-
-        print(df_prior["price_dp"])
-        print(gdf_lmps["price_dp"])
-
-        df_filled["price_dp"] = (df_prior["price_dp"] + gdf_lmps["price_dp"]) / 2
         
-        one_hours_prior_dt =  two_hours_prior_dt + timedelta(hours=1)
+def fill_previous_hour(current_date, current_hour_ending, outdir, gdf_lmps):
+    print("Previous hour missing. Filling with average of current and 2 hours prior...")
 
-        one_hour_prior_hour = one_hours_prior_dt.hour
-        one_hour_prior_date = one_hours_prior_dt.strftime("%Y-%m-%d")
+    # compute the datetime of the prior hour (2 hours before the current hour ending)
+    two_hours_prior_dt = datetime.strptime(current_date, "%Y-%m-%d").replace(
+        tzinfo=ZoneInfo("US/Pacific")
+    ) + timedelta(hours=current_hour_ending - 2)
 
-        if one_hour_prior_hour == 0:
-            one_hour_prior_hour = 24
-            one_hour_prior_date = (one_hours_prior_dt + timedelta(hours=-1)).strftime("%Y-%m-%d")
+    two_hours_prior_hour = two_hours_prior_dt.hour
+    two_hours_prior_date = two_hours_prior_dt.strftime("%Y-%m-%d")
 
-        filled_file = outdir / f"caiso_lmps_{one_hour_prior_date}_HE{one_hour_prior_hour:02d}.csv"
-        df_filled.to_csv(filled_file, index=False)
-        print(f"Filled missing previous hour saved to {filled_file}")
+    if two_hours_prior_hour == 0:
+        two_hours_prior_hour = 24
+        two_hours_prior_date = (two_hours_prior_dt + timedelta(hours=-1)).strftime("%Y-%m-%d")
 
+    two_hours_hour_file = outdir / f"caiso_lmps_{two_hours_prior_date}_HE{two_hours_prior_hour:02d}.csv"
 
+    df_prior = pd.read_csv(two_hours_hour_file)
+    df_filled = df_prior.copy()
+
+    print(df_prior["price_dp"])
+    print(gdf_lmps["price_dp"])
+
+    df_filled["price_dp"] = (df_prior["price_dp"] + gdf_lmps["price_dp"]) / 2
+    
+    one_hours_prior_dt =  two_hours_prior_dt + timedelta(hours=1)
+
+    one_hour_prior_hour = one_hours_prior_dt.hour
+    one_hour_prior_date = one_hours_prior_dt.strftime("%Y-%m-%d")
+
+    if one_hour_prior_hour == 0:
+        one_hour_prior_hour = 24
+        one_hour_prior_date = (one_hours_prior_dt + timedelta(hours=-1)).strftime("%Y-%m-%d")
+
+    filled_file = outdir / f"caiso_lmps_{one_hour_prior_date}_HE{one_hour_prior_hour:02d}.csv"
+    df_filled.to_csv(filled_file, index=False)
+    print(f"Filled missing previous hour saved to {filled_file}")
+
+    
 def combine_lmps(lmp_dir):
     """Make a combined df of hourly CAISO LMP prices across the next 24 hours.
     Each row is an lmp node and each lmp price column is a datetime string"""
