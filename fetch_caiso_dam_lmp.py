@@ -64,8 +64,8 @@ def fetch_lmps(outdir):
     ca_polygon = gdf_ca.union_all()
     gdf_lmps = gdf_lmps[gdf_lmps.within(ca_polygon)]
 
-    # Remove unnecessary columns for storage savings
-    gdf_lmps = gdf_lmps.drop(columns=["type", "geometry", "area"])
+    # Remove unnecessary columns for storage savings and reset index
+    gdf_lmps = gdf_lmps.drop(columns=["type", "geometry", "area"]).reset_index(drop=True)
 
     # Compute the timestamp of the latest file just saved
     latest_dt = datetime.strptime(current_date, "%Y-%m-%d").replace(
@@ -74,7 +74,8 @@ def fetch_lmps(outdir):
 
     window_start = latest_dt - timedelta(hours=23)  # 24 consecutive hours
 
-    # Delete old files outside this window
+    # Delete old files outside this window and check if the previous hour is missing
+    has_previous_hour = False
     for f in outdir.glob("*csv"):
         parts = f.stem.split("_")
         file_date = parts[2]
@@ -87,11 +88,31 @@ def fetch_lmps(outdir):
             f.unlink()
             print(f"Deleted old file: {f.name}")
 
+        if file_hour == current_hour_ending - 1:
+            has_previous_hour = True
+
     # Save to timestamped CSV
     safe_date = current_date.replace(":", "_")
     outfile = outdir / f"caiso_lmps_{safe_date}_HE{current_hour_ending:02d}.csv"
     gdf_lmps.to_csv(outfile, index=False)
     print(f"Saved {len(gdf_lmps)} nodes to {outfile}")
+
+    # Fill missing previous hour if needed
+    if not has_previous_hour:
+        print("Previous hour missing. Filling with average of current and 2 hours prior...")
+        prior_hour_file = outdir / f"caiso_lmps_{safe_date}_HE{current_hour_ending - 2:02d}.csv"
+
+        df_prior = pd.read_csv(prior_hour_file)
+        df_filled = df_prior.copy()
+
+        print(df_prior["price_dp"])
+        print(gdf_lmps["price_dp"])
+
+        df_filled["price_dp"] = (df_prior["price_dp"] + gdf_lmps["price_dp"]) / 2
+
+        filled_file = outdir / f"caiso_lmps_{safe_date}_HE{current_hour_ending - 1:02d}.csv"
+        df_filled.to_csv(filled_file, index=False)
+        print(f"Filled missing previous hour saved to {filled_file}")
 
 
 def combine_lmps(lmp_dir):
