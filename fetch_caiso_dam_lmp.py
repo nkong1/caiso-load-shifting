@@ -1,4 +1,3 @@
-# fetch_caiso_dayahead.py
 import requests
 import pandas as pd
 from datetime import datetime
@@ -8,6 +7,8 @@ import geopandas as gpd
 import time
 import shapely
 from zoneinfo import ZoneInfo
+import build_json
+from process_data import run
 
 
 def fetch(url):
@@ -49,15 +50,17 @@ def fetch_lmps(outdir):
                 )
 
     df = pd.DataFrame(nodes)
+    filter_and_save_lmps(df, current_hour_ending, current_date, outdir)
 
+def filter_and_save_lmps(lmp_df, current_hour_ending, current_date, outdir):
     # Filter for just LOAD nodes
-    df = df[df["type"] == "LOAD"]
+    lmp_df = lmp_df[lmp_df["type"] == "LOAD"]
 
     # Clip just to nodes within CA
     ca_shapefile = "ca_state/CA_State.shp"  # path to California shapefile
 
     gdf_lmps = gpd.GeoDataFrame(
-        df, geometry=gpd.points_from_xy(df["lon"], df["lat"]), crs="EPSG:4326"  # WGS84
+        lmp_df, geometry=gpd.points_from_xy(lmp_df["lon"], lmp_df["lat"]), crs="EPSG:4326"  # WGS84
     )
 
     gdf_ca = gpd.read_file(ca_shapefile).to_crs("EPSG:4326")
@@ -103,8 +106,8 @@ def fetch_lmps(outdir):
     print(f"Saved {len(gdf_lmps)} nodes to {outfile}")
 
     # Fill missing previous hour if needed
-    if not has_previous_hour:
-        fill_previous_hour(current_date, current_hour_ending, outdir, gdf_lmps)
+    # if not has_previous_hour:
+        # fill_previous_hour(current_date, current_hour_ending, outdir, gdf_lmps)
         
         
 def fill_previous_hour(current_date, current_hour_ending, outdir, gdf_lmps):
@@ -145,88 +148,17 @@ def fill_previous_hour(current_date, current_hour_ending, outdir, gdf_lmps):
     df_filled.to_csv(filled_file, index=False)
     print(f"Filled missing previous hour saved to {filled_file}")
 
-    
-def combine_lmps(lmp_dir):
-    """Make a combined df of hourly CAISO LMP prices across the next 24 hours.
-    Each row is an lmp node and each lmp price column is a datetime string"""
-
-    combined_df = pd.DataFrame()
-
-    for f in lmp_dir.glob("*csv"):
-        parts = f.stem.split("_")
-        file_date = parts[2]
-        file_hour = int(parts[3][2:])
-
-        file_dt = datetime.strptime(file_date, "%Y-%m-%d").replace() + timedelta(
-            hours=file_hour
-        )
-
-        single_hour_df = pd.read_csv(f)
-        single_hour_df = single_hour_df.rename(columns={"price_dp": str(file_dt)})
-
-        single_hour_df = single_hour_df.drop(
-            columns=["geometry", "type", "area"], errors="ignore"
-        )
-
-        if combined_df.empty:
-            combined_df = single_hour_df
-        else:
-            combined_df = pd.merge(
-                combined_df, single_hour_df, on=["node_id", "lat", "lon"], how="inner"
-            )
-
-        combined_df = combined_df.sort_index(axis=1, ascending=False)
-
-    # Drop rows where all LMP values are zero
-    price_cols = combined_df.columns.drop("node_id")
-    combined_df = combined_df[(combined_df[price_cols] != 0).any(axis=1)]
-
-    return combined_df
-
-
-def score_lmps(dam_lmp_df_hourly):
-    """Assign each node a score at every hour, representing how favorable it is to deploy
-    a flexible load relative to that node’s most expensive (highest LMP) hour within
-    the 24-hour window. The score is calculated as the relative difference between the
-    LMP at a given hour and the node’s maximum LMP over the period. A score of 0
-    corresponds to the highest-price (least favorable) hour. Higher scores indicate
-    lower-price (more favorable) hours.
-    """
-
-    # Get the price-only sub-df
-    price_df = dam_lmp_df_hourly.drop(columns="node_id", errors="ignore")
-
-    # Row-wise max (worst price) as numpy array
-    max_vals = price_df.max(axis=1).to_numpy().reshape(-1, 1)
-
-    # Compute relative improvement vs worst
-    percent_better = (max_vals - price_df.to_numpy()) / max_vals 
-
-    # Wrap back into a DataFrame
-    percent_better_df = pd.DataFrame(
-        percent_better,
-        index=price_df.index,
-        columns=price_df.columns
-    )
-
-    # Handle edge case: if all prices are equal, set scores to 0
-    percent_better_df = percent_better_df.fillna(0)
-
-    # Reattach node_id
-    percent_better_df = pd.concat([dam_lmp_df_hourly[["node_id"]], percent_better_df], axis=1)
-
-    return percent_better_df
-
 
 def main():
-    # Make a directory to store the retrieved CAISO data
+    # Create an output path
     lmp_dir = Path("caiso_data")
     lmp_dir.mkdir(exist_ok=True)
+
+    # Fetch the latest LMP data from CAISO
     fetch_lmps(lmp_dir)
 
-    dam_lmps_hourly = combine_lmps(lmp_dir)
-    scored_lmps = score_lmps(dam_lmps_hourly)
-
+    # Call the processing module
+    # run(lmp_dir)
 
 if __name__ == "__main__":
     main()
