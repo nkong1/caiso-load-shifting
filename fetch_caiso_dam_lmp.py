@@ -7,8 +7,7 @@ import geopandas as gpd
 import time
 import shapely
 from zoneinfo import ZoneInfo
-#import build_json
-#from process_data import run
+from process_data import run
 
 
 def fetch(url):
@@ -158,7 +157,7 @@ def main():
     fetch_lmps(lmp_dir)
 
     # Call the processing module
-    # run(lmp_dir)
+    run(lmp_dir)
 
 if __name__ == "__main__":
     main()
