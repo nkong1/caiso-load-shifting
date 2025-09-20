@@ -7,8 +7,8 @@ import geopandas as gpd
 import time
 import shapely
 from zoneinfo import ZoneInfo
-import build_json
-from process_data import run
+#import build_json
+#from process_data import run
 
 
 def fetch(url):
