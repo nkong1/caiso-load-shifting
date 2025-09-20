@@ -4,8 +4,6 @@ permissions:
   contents: write
 
 on:
-  schedule:
-    - cron: "11,41 * * * *"   # run twice every hour
   workflow_dispatch:       # allow manual trigger
 
 jobs:
