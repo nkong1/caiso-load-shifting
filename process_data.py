@@ -36,8 +36,8 @@ def combine_lmps(lmp_dir):
 
         combined_df = combined_df.sort_index(axis=1, ascending=False)
 
-    # Drop rows where all LMP values are zero
-    price_cols = combined_df.columns.drop("node_id")
+    # Drop rows where all price columns are zero
+    price_cols = combined_df.columns.difference(["node_id", "lat", "lon"])
     combined_df = combined_df[(combined_df[price_cols] != 0).any(axis=1)]
 
     # Save to the intermediate outputs folder
@@ -57,7 +57,7 @@ def score_lmps(dam_lmp_df_hourly):
     """
 
     # Get the price-only sub-df
-    price_df = dam_lmp_df_hourly.drop(columns="node_id", errors="ignore")
+    price_df = dam_lmp_df_hourly.drop(columns=["node_id", "lat", "lon"], errors="ignore")
 
     # Row-wise max (worst price) as numpy array
     max_vals = price_df.max(axis=1).to_numpy().reshape(-1, 1)
@@ -76,7 +76,7 @@ def score_lmps(dam_lmp_df_hourly):
     percent_better_df = percent_better_df.fillna(0)
 
     # Reattach node_id
-    percent_better_df = pd.concat([dam_lmp_df_hourly[["node_id"]], percent_better_df], axis=1)
+    percent_better_df = pd.concat([dam_lmp_df_hourly[["node_id", "lat", "lon"]], percent_better_df], axis=1)
 
     # Save to the intermediate outputs folder
     outpath = Path.cwd() / 'intermediate_outputs' / 'caiso_dam_lmp_scores.csv'
