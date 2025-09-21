@@ -106,6 +106,7 @@ def save_scores_json(scores_df):
             "lat": row["lat"],
             "lon": row["lon"],
             "best_hour": best_hour,
+            'best_hour_price': row[best_hour],
             "best_score": float(best_score),
             "worst_hour": worst_hour,
         }
