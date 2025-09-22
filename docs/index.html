@@ -67,7 +67,7 @@
 
 <header>
   <h1>CAISO Load-Shifting Outlook</h1>
-  <p>Flexible load deployment guidance based on nodal LMPs.</p>
+  <p>Flexible load deployment guidance based on nodal LMP forecasts.</p>
   <div id="last-updated">Last updated: loading...</div>
 </header>
 
@@ -171,7 +171,7 @@ d3.json("lmp_scores.json?ts=" + new Date().getTime()).then((data) => {
   const legend = L.control({position:"bottomright"});
   legend.onAdd = function() {
     const div = L.DomUtil.create("div","legend");
-    div.innerHTML = "<b>Best Hour</b><br>";
+    div.innerHTML = "<b>Lowest Grid Stress Hour</b><br>";
     const canvas = document.createElement("canvas");
     canvas.width = 240; canvas.height = 20;
     const ctx = canvas.getContext("2d");
@@ -193,9 +193,17 @@ d3.json("lmp_scores.json?ts=" + new Date().getTime()).then((data) => {
   // Last-updated from latest best_hour
   const lastUpdatedDiv = document.getElementById("last-updated");
   const latestHourDate = new Date(Math.max(...data.map(d => parseDateTimeYYYYMMDD_HHMMSS(d.node_data.best_hour).getTime())));
-  latestHourDate.setMinutes(0,0,0);
+
+  // Subtract 1 hour and add 27 minutes
+  latestHourDate.setHours(latestHourDate.getHours() - 1);
+  latestHourDate.setMinutes(latestHourDate.getMinutes() + 27, 0, 0);
+
   lastUpdatedDiv.textContent = "Last updated: " + latestHourDate.toLocaleString("en-US", {
-    month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
   }).replace(",", " at");
 });
 
