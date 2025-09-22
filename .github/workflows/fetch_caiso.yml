@@ -2,9 +2,13 @@ name: Fetch CAISO Day-Ahead LMPs
 
 permissions:
   contents: write
+  pages: write
+  id-token: write   # required for official gh-pages deployment
 
 on:
   workflow_dispatch:       # allow manual trigger
+  push:
+    branches: [main]       # optionally auto-deploy when main updates
 
 jobs:
   fetch:
@@ -19,7 +23,6 @@ jobs:
         with:
           python-version: "3.11"
 
-      # === Cache pip packages ===
       - name: Cache pip
         uses: actions/cache@v3
         with:
@@ -32,7 +35,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run fetch script
-        run: python fetch_caiso_dam_lmp.py
+        run: python src/fetch_caiso_dam_lmp.py
 
       - name: Commit and push outputs
         run: |
@@ -41,3 +44,19 @@ jobs:
           git add .
           git commit -m "Fetch latest LMP data and update JSON files" || echo "No changes to commit"
           git push
+
+  deploy:
+    needs: fetch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Deploy only the frontend folder to GitHub Pages
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./front_end
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
