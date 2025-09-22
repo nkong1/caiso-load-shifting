@@ -318,7 +318,7 @@ d3.json("lmp_prices.json?ts=" + new Date().getTime()).then((data) => {
 
   // Create vibrant continuous color scale using Turbo colormap
   lmpPriceColor = d3.scaleSequential()
-    .domain([-150, 150])
+    .domain([-100, 100])
     .interpolator(d3.interpolateTurbo)
     .clamp(true);
 
@@ -329,7 +329,7 @@ d3.json("lmp_prices.json?ts=" + new Date().getTime()).then((data) => {
   slider.step = 1;
 
   lmpUpdateSliderTicks(lmpData.length, lmpTimeStamps);
-  lmpCreatePriceLegend(-150, 150);
+  lmpCreatePriceLegend(-100, 100);
   lmpUpdate(0);
 
   slider.addEventListener("input", (e) => {
