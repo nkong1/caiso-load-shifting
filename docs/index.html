@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CAISO Load-Shifting Outlook</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Leaflet CSS/JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<style>
+  body { font-family: Arial; margin:0; padding:0; }
+  header { background:#004466; color:white; padding:1rem; text-align:center; }
+  nav { display:flex; justify-content:center; margin:1rem; }
+  nav button { margin:0 0.5rem; padding:0.5rem 1rem; border:none; border-radius:6px; cursor:pointer; }
+  nav button.active { background:#004466; color:white; }
+  #content { height:calc(100vh - 160px); margin:0 1rem 1rem 1rem; }
+  .tab { display:none; height:100%; }
+  .tab.active { display:block; }
+  .map { width:100%; height:100%; }
+  .legend { background:white; padding:8px 10px; font-size:12px; line-height:18px; color:#222; border-radius:6px; box-shadow:0 1px 6px rgba(0,0,0,0.15); }
+  .slider-container { margin:0.5rem 1rem; text-align:center; }
+  #time-label { font-weight:bold; margin-bottom:0.25rem; display:block; }
+  #time-slider { width:40%; max-width:400px; }
+  .slider-ticks { display:flex; justify-content:space-between; font-size:11px; margin-top:4px; color:#333; width:40%; max-width:400px; margin-left:auto; margin-right:auto; }
+  .no-data { text-align:center; padding:1rem; color:#666; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CAISO Load-Shifting Outlook</h1>
+  <p>Flexible load deployment guidance based on nodal LMPs.</p>
+  <div id="last-updated">Last updated: loading...</div>
+</header>
+
+<nav>
+  <button id="tab-outlook" class="active">Day-Ahead Outlook</button>
+  <button id="tab-lmps">Day-Ahead LMPs</button>
+</nav>
+
+<div id="content">
+  <div id="outlook" class="tab active">
+    <div id="map-outlook" class="map"></div>
+  </div>
+
+  <div id="lmps" class="tab">
+    <div class="slider-container" id="slider-wrapper">
+      <span id="time-label">Loading hours…</span>
+      <input type="range" id="time-slider" min="0" max="0" value="0" step="1" />
+      <div class="slider-ticks" id="slider-ticks"></div>
+    </div>
+    <div id="map-lmps" class="map"></div>
+    <div id="lmps-no-data" class="no-data" style="display:none;">No LMP data available.</div>
+  </div>
+</div>
+
+<script>
+// ----------------- Helpers -----------------
+function parseDateTimeYYYYMMDD_HHMMSS(s) {
+  // robust parser for "YYYY-MM-DD HH:MM:SS"
+  if (!s) return null;
+  const [datePart, timePart] = s.split(' ');
+  if (!timePart) return new Date(s); // fallback
+  const [y, m, d] = datePart.split('-').map(Number);
+  const [hh, mm, ss] = timePart.split(':').map(Number);
+  return new Date(y, m - 1, d, hh, mm || 0, ss || 0);
+}
+function formatHour(h) {
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12} ${ampm}`;
+}
+function formatHourRangeFromEndDate(endDate) {
+  const endHour = endDate.getHours();
+  const startHour = (endHour + 23) % 24;
+  return `${formatHour(startHour)} - ${formatHour(endHour)}`;
+}
+
+// ----------------- Maps -----------------
+const outlookMap = L.map("map-outlook").setView([37.5, -119.5], 6);
+const lmpsMap = L.map("map-lmps").setView([37.5, -119.5], 6);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  { attribution:"&copy; OpenStreetMap contributors" }).addTo(outlookMap);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  { attribution:"&copy; OpenStreetMap contributors" }).addTo(lmpsMap);
+
+// Tab switching (after maps exist)
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+    btn.classList.add("active");
+    if (btn.id === "tab-outlook") {
+      document.getElementById("outlook").classList.add("active");
+      setTimeout(()=> outlookMap.invalidateSize(), 100);
+    } else {
+      document.getElementById("lmps").classList.add("active");
+      setTimeout(()=> lmpsMap.invalidateSize(), 100);
+    }
+  });
+});
+
+// ----------------- Outlook tab  -----------------
+d3.json("lmp_scores.json?ts=" + new Date().getTime()).then((data) => {
+  if (!data) return;
+  const discreteColors = [];
+  for (let h = 0; h < 24; h++) discreteColors.push(d3.interpolateTurbo((h + 0.5) / 24));
+  function colorForHour(hour) { return discreteColors[hour % 24]; }
+
+  data.forEach(d => {
+    const bestHour = parseDateTimeYYYYMMDD_HHMMSS(d.node_data.best_hour).getHours();
+    const worstHour = parseDateTimeYYYYMMDD_HHMMSS(d.node_data.worst_hour).getHours();
+    const LMP = Number(d.node_data.best_hour_price).toFixed(2);
+    const scorePercent = (d.node_data.best_score * 100).toFixed(1);
+    const popupText = `<b>${d.node_id}</b><br>
+      Least-Stress Hour: ${formatHourRangeFromEndDate(new Date(0,0,0,bestHour))}<br>
+      LMP: ${LMP} $/MWh<br>
+      Comparison: ${scorePercent}% lower than ${formatHourRangeFromEndDate(new Date(0,0,0,worstHour))}`;
+    L.circleMarker([d.node_data.lat, d.node_data.lon], {
+      radius:6, fillColor: colorForHour(bestHour), fillOpacity:0.9, color:"#333", weight:1
+    }).addTo(outlookMap).bindPopup(popupText);
+  });
+
+  // Outlook legend: 24-hour Turbo bar
+  const legend = L.control({position:"bottomright"});
+  legend.onAdd = function() {
+    const div = L.DomUtil.create("div","legend");
+    div.innerHTML = "<b>Best Hour</b><br>";
+    const canvas = document.createElement("canvas");
+    canvas.width = 240; canvas.height = 20;
+    const ctx = canvas.getContext("2d");
+    for (let h = 0; h < 24; h++) {
+      ctx.fillStyle = colorForHour(h);
+      ctx.fillRect(h * (canvas.width/24), 0, (canvas.width/24), canvas.height);
+    }
+    div.appendChild(canvas);
+    const labelDiv = document.createElement("div");
+    labelDiv.style.display="flex"; labelDiv.style.justifyContent="space-between"; labelDiv.style.marginTop="4px";
+    [0,6,12,18,24].forEach(h => {
+      const l = document.createElement("span"); l.style.fontSize="11px"; l.textContent = formatHour(h % 24); labelDiv.appendChild(l);
+    });
+    div.appendChild(labelDiv);
+    return div;
+  };
+  legend.addTo(outlookMap);
+
+  const lastUpdatedDiv = document.getElementById("last-updated");
+  const latestHourDate = new Date(Math.max(...data.map(d => parseDateTimeYYYYMMDD_HHMMSS(d.node_data.best_hour).getTime())));
+  latestHourDate.setMinutes(0,0,0);
+  lastUpdatedDiv.textContent = "Last updated: " + latestHourDate.toLocaleString("en-US", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true
+  }).replace(",", " at");
+});
+
+// ----------------- LMPs tab -----------------
+let lmpData = [], lmpMarkers = [], lmpTimeStamps = [], lmpPriceColor = null;
+
+function lmpCreatePriceLegend(minP, maxP) {
+  const existing = document.querySelector("#lmps .legend");
+  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+  const legend = L.control({position:"bottomright"});
+  legend.onAdd = function() {
+    const div = L.DomUtil.create("div","legend");
+    div.innerHTML = "<b>Price ($/MWh)</b><br>";
+    const canvas = document.createElement("canvas");
+    canvas.width = 240; canvas.height = 20;
+    const ctx = canvas.getContext("2d");
+    const steps = 240;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const price = minP + t * (maxP - minP);
+      ctx.fillStyle = lmpPriceColor(price);
+      ctx.fillRect(i * (canvas.width/steps), 0, (canvas.width/steps), canvas.height);
+    }
+    div.appendChild(canvas);
+    const labelDiv = document.createElement("div");
+    labelDiv.style.display="flex"; 
+    labelDiv.style.justifyContent="space-between"; 
+    labelDiv.style.marginTop="4px";
+    [minP, 0, maxP].forEach(v => {
+      const l = document.createElement("span");
+      l.style.fontSize="11px"; 
+      l.textContent = Math.round(v); 
+      labelDiv.appendChild(l);
+    });
+    div.appendChild(labelDiv);
+    return div;
+  };
+  legend.addTo(lmpsMap);
+}
+
+function lmpUpdateSliderTicks(n, timeStampsLocal) {
+  const ticksWrap = document.getElementById("slider-ticks");
+  ticksWrap.innerHTML = "";
+  if (!n) return;
+  for (let i = 0; i <= 2; i++) {
+    const idx = Math.round(i * (n - 1) / 2);
+    const sp = document.createElement("span");
+    sp.textContent = formatHourRangeFromEndDate(timeStampsLocal[idx]);
+    ticksWrap.appendChild(sp);
+  }
+}
+
+function lmpUpdate(index) {
+  lmpMarkers.forEach(m => lmpsMap.removeLayer(m));
+  lmpMarkers = [];
+  if (!lmpData || !lmpData.length) return;
+
+  const bin = lmpData[index];
+  const endDate = lmpTimeStamps[index];
+  document.getElementById("time-label").textContent = "Hour: " + formatHourRangeFromEndDate(endDate);
+
+  bin.records.forEach(rec => {
+    const recEndDate = rec.time ? parseDateTimeYYYYMMDD_HHMMSS(rec.time) : endDate;
+    const popupHourRange = formatHourRangeFromEndDate(recEndDate);
+    const price = Math.max(-150, Math.min(150, rec.price));
+    const marker = L.circleMarker([rec.lat, rec.lon], {
+      radius: 6,
+      fillColor: lmpPriceColor(price),
+      fillOpacity: 0.9,
+      color: "#333",
+      weight: 1
+    }).addTo(lmpsMap).bindPopup(
+      `<b>${rec.node_id}</b><br>Hour: ${popupHourRange}<br>Price: ${Number(rec.price).toFixed(2)} $/MWh`
+    );
+    lmpMarkers.push(marker);
+  });
+
+
+}
+
+d3.json("lmp_prices.json?ts=" + new Date().getTime()).then((data) => {
+  if (!data || !data.length) {
+    document.getElementById("lmps-no-data").style.display = "block";
+    document.getElementById("slider-wrapper").style.display = "none";
+    return;
+  }
+  data.sort((a,b) => parseDateTimeYYYYMMDD_HHMMSS(a.time) - parseDateTimeYYYYMMDD_HHMMSS(b.time));
+  lmpData = data;
+  lmpTimeStamps = lmpData.map(d => parseDateTimeYYYYMMDD_HHMMSS(d.time));
+
+  // Create vibrant continuous color scale using Turbo colormap
+  lmpPriceColor = d3.scaleSequential()
+    .domain([-100, 100])
+    .interpolator(d3.interpolateTurbo)
+    .clamp(true);
+
+  const slider = document.getElementById("time-slider");
+  slider.min = 0;
+  slider.max = Math.max(0, lmpData.length - 1);
+  slider.value = 0;
+  slider.step = 1;
+
+  lmpUpdateSliderTicks(lmpData.length, lmpTimeStamps);
+  lmpCreatePriceLegend(-100, 100);
+  lmpUpdate(0);
+
+  slider.addEventListener("input", (e) => {
+    lmpUpdate(+e.target.value);
+  });
+}).catch(err => {
+  console.error("Failed to load lmp_prices.json:", err);
+  document.getElementById("lmps-no-data").style.display = "block";
+  document.getElementById("slider-wrapper").style.display = "none";
+});
+
+</script>
+</body>
+</html>

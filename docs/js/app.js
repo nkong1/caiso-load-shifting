@@ -1,4 +1,3 @@
-// app.js - expects docs/lmp_price_scores.json (array of {time, records})
 (async function(){
   const map = L.map('map').setView([37.5, -119.5], 6);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
