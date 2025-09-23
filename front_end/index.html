@@ -210,15 +210,17 @@ d3.json("lmp_scores.json?ts=" + new Date().getTime()).then((data) => {
   };
   legend.addTo(outlookMap);
 
-  // Last-updated from latest best_hour
+  // Last-updated using current hour
   const lastUpdatedDiv = document.getElementById("last-updated");
-  const latestHourDate = new Date(Math.max(...data.map(d => parseDateTimeYYYYMMDD_HHMMSS(d.node_data.best_hour).getTime())));
+  const now = new Date();
 
-  // Subtract 1 hour and add 27 minutes
-  latestHourDate.setHours(latestHourDate.getHours() - 1);
-  latestHourDate.setMinutes(latestHourDate.getMinutes() + 27, 0, 0);
+  // Round down to the start of the current hour
+  now.setMinutes(0, 0, 0);
 
-  lastUpdatedDiv.textContent = "Last updated: " + latestHourDate.toLocaleString("en-US", {
+  // Add 27 minutes
+  now.setMinutes(now.getMinutes() + 27);
+
+  lastUpdatedDiv.textContent = "Last updated: " + now.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
