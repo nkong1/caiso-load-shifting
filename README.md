@@ -2,8 +2,6 @@
 
 This project provides an interactive visualization of day-ahead nodal locational marginal prices (LMPs) and grid stress forecasts for California ISO. It is designed to help electricity consumers understand the ideal hours to deploy flexible electrical loads to minimize grid stress.
 
-Access the webpage here: https://nkong1.github.io/caiso-load-shifting/
-
 Intended to be useful for:
 
 -Energy management and demand response planning
