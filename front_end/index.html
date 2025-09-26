@@ -220,14 +220,14 @@ d3.json("lmp_scores.json?ts=" + new Date().getTime()).then((data) => {
   // Add 27 minutes
   now.setMinutes(now.getMinutes() + 27);
 
-  lastUpdatedDiv.textContent = "Last updated (PST): " + now.toLocaleString("en-US", {
+  lastUpdatedDiv.textContent = "Last updated: " + now.toLocaleString("en-US", {
   month: "short",
   day: "numeric",
   hour: "numeric",
   minute: "2-digit",
   hour12: true,
   timeZone: "America/Los_Angeles"  
-}).replace(",", " at");
+}).replace(",", " at") + " PST";
 });
 
 // ----------------- LMPs tab (scoped functions/vars) -----------------
