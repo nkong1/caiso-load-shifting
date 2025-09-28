@@ -210,24 +210,36 @@ d3.json("lmp_scores.json?ts=" + new Date().getTime()).then((data) => {
   };
   legend.addTo(outlookMap);
 
-  // Last-updated using current hour
+  // Last-updated logic
   const lastUpdatedDiv = document.getElementById("last-updated");
   const now = new Date();
 
-  // Round down to the start of the current hour
-  now.setMinutes(0, 0, 0);
+  // Get current hour/minute in LA time
+  const laNow = new Date(
+    now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+  );
 
-  // Add 27 minutes
-  now.setMinutes(now.getMinutes() + 27);
+  let displayTime = new Date(laNow);
 
-  lastUpdatedDiv.textContent = "Last updated: " + now.toLocaleString("en-US", {
-  month: "short",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: true,
-  timeZone: "America/Los_Angeles"  
-}).replace(",", " at") + " (PST)";
+  if (laNow.getMinutes() <= 27) {
+    // Show previous hour at :27
+    displayTime.setHours(displayTime.getHours() - 1);
+    displayTime.setMinutes(27, 0, 0);
+  } else {
+    // Show current hour at :27
+    displayTime.setMinutes(27, 0, 0);
+  }
+
+  lastUpdatedDiv.textContent =
+    "Last updated: " +
+    displayTime.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: "America/Los_Angeles",
+    }).replace(",", " at") + " (PST)";
 });
 
 // ----------------- LMPs tab (scoped functions/vars) -----------------
