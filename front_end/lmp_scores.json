@@ -4107,7 +4107,7 @@
     "node_data": {
       "lat": 37.342839,
       "lon": -118.471988,
-      "best_hour": "2025-11-25 19:00:00",
+      "best_hour": "2025-11-26 03:00:00",
       "best_hour_price": -0.0,
       "best_score": -0.0,
       "worst_hour": "2025-11-25 13:00:00"
@@ -19859,9 +19859,9 @@
     "node_data": {
       "lat": 32.595376662064226,
       "lon": -117.0577334243903,
-      "best_hour": "2025-11-25 03:00:00",
-      "best_hour_price": 2.01,
-      "best_score": 2.01,
+      "best_hour": "2025-11-25 14:00:00",
+      "best_hour_price": 2.0,
+      "best_score": 2.0,
       "worst_hour": "2025-11-25 20:00:00"
     }
   },
