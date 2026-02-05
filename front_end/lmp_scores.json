@@ -19859,7 +19859,7 @@
     "node_data": {
       "lat": 32.595376662064226,
       "lon": -117.0577334243903,
-      "best_hour": "2026-02-05 01:00:00",
+      "best_hour": "2026-02-05 02:00:00",
       "best_hour_price": Infinity,
       "best_score": Infinity,
       "worst_hour": "2026-02-04 23:00:00"
