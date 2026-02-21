@@ -4108,9 +4108,9 @@
       "lat": 37.342839,
       "lon": -118.471988,
       "best_hour": "2026-02-20 15:00:00",
-      "best_hour_price": 65.859,
-      "best_score": 65.859,
-      "worst_hour": "2026-02-20 20:00:00"
+      "best_hour_price": 8.468894368200724,
+      "best_score": 8.468894368200724,
+      "worst_hour": "2026-02-21 05:00:00"
     }
   },
   {
@@ -19881,7 +19881,7 @@
     "node_data": {
       "lat": 32.595376662064226,
       "lon": -117.0577334243903,
-      "best_hour": "2026-02-21 04:00:00",
+      "best_hour": "2026-02-21 05:00:00",
       "best_hour_price": Infinity,
       "best_score": Infinity,
       "worst_hour": "2026-02-20 23:00:00"
